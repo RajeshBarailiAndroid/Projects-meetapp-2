@@ -1,4 +1,4 @@
-# Chit Chat — video/audio meeting platform
+# Huddlace Chat — video/audio meeting platform
 
 A multi-room video and audio meeting app: create a meeting, share the link,
 and anyone who opens it joins the same room with live video, audio, screen

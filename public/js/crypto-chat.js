@@ -10,7 +10,7 @@ window.MeetCrypto = (() => {
     const enc = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      enc.encode(`meetapp-v1:${roomId}`),
+      enc.encode(`huddlace-v1:${roomId}`),
       'PBKDF2',
       false,
       ['deriveKey'],
@@ -18,7 +18,7 @@ window.MeetCrypto = (() => {
     roomKey = await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: enc.encode('meetapp-chat-salt-v1'),
+        salt: enc.encode('huddlace-chat-salt-v1'),
         iterations: 100000,
         hash: 'SHA-256',
       },

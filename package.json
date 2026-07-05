@@ -1,7 +1,7 @@
 {
-  "name": "chit-chat",
+  "name": "huddlace-chat",
   "version": "1.0.0",
-  "description": "Chit Chat — video/audio meeting platform (WebRTC mesh + Socket.io signaling)",
+  "description": "Huddlace Chat — video/audio meeting platform (WebRTC mesh + Socket.io signaling)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
