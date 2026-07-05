@@ -7,6 +7,10 @@ function normalizeRoomId(raw) {
   return String(raw || '').trim().toLowerCase().replace(/[^a-f0-9]/g, '');
 }
 
+function apiBase() {
+  return (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
+}
+
 if (!roomId || roomId.length < 4) {
   window.location.href = '/';
 }
@@ -439,7 +443,17 @@ function addVideoTrackToPeers(track, screenShare = false) {
 
 // ===================== Socket / signaling =====================
 function connectSocket() {
-  socket = io();
+  const serverUrl = apiBase() || undefined;
+  socket = serverUrl
+    ? io(serverUrl, { transports: ['websocket', 'polling'] })
+    : io();
+
+  socket.on('connect_error', () => {
+    if (serverUrl && mediaStatus) {
+      mediaStatus.textContent = 'Cannot reach the meeting server. Check BACKEND_URL is set in Vercel.';
+      mediaStatus.classList.add('error');
+    }
+  });
 
   socket.on('connect', () => {
     socket.emit('join-room', { roomId, name: myName }, ({ peers: existingPeers, selfId: id }) => {

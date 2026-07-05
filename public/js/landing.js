@@ -75,6 +75,26 @@ async function copyText(text, btn, doneLabel) {
   }
 }
 
+function apiBase() {
+  return (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
+}
+
+function generateRoomId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function createRoomId() {
+  const base = apiBase();
+  if (base) {
+    const res = await fetch(`${base}/new`);
+    if (!res.ok) throw new Error('Could not create meeting on server.');
+    const { roomId } = await res.json();
+    return roomId;
+  }
+  return generateRoomId();
+}
+
 createBtn.addEventListener('click', async () => {
   if (!getNameOrError()) return;
   clearError();
@@ -82,9 +102,7 @@ createBtn.addEventListener('click', async () => {
   createBtn.textContent = 'Generating…';
 
   try {
-    const res = await fetch('/new');
-    if (!res.ok) throw new Error('Could not create meeting.');
-    const { roomId } = await res.json();
+    const roomId = await createRoomId();
     saveName();
     showCreatedCode(roomId);
   } catch (err) {

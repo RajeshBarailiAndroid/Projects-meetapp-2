@@ -8,9 +8,11 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
-const HTTP_PORT = Number(process.env.HTTP_PORT || process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
-const ENABLE_HTTPS = process.env.USE_HTTPS !== 'false';
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const ENABLE_LOCAL_HTTPS = process.env.USE_HTTPS === 'true';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '';
 const CERT_DIR = path.join(__dirname, 'certs');
 
 app.use((req, res, next) => {
@@ -20,6 +22,16 @@ app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=*, microphone=*, display-capture=*');
   next();
 });
+
+if (CORS_ORIGIN) {
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -52,6 +64,10 @@ app.get('/new', (_req, res) => {
   res.json({ roomId });
 });
 
+app.get('/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 const rooms = new Map();
 const socketRooms = new Map();
 
@@ -74,14 +90,20 @@ function isSameRoom(senderId, targetId) {
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   maxHttpBufferSize: 1e6,
-  cors: { origin: false },
+  cors: CORS_ORIGIN
+    ? { origin: CORS_ORIGIN, methods: ['GET', 'POST'], credentials: true }
+    : { origin: false },
 });
 
 let httpsServer = null;
-if (ENABLE_HTTPS) {
-  const tls = ensureDevCertificates();
-  httpsServer = https.createServer(tls, app);
-  io.attach(httpsServer);
+if (ENABLE_LOCAL_HTTPS && !IS_VERCEL && !process.env.RENDER) {
+  try {
+    const tls = ensureDevCertificates();
+    httpsServer = https.createServer(tls, app);
+    io.attach(httpsServer);
+  } catch (err) {
+    console.warn('Local HTTPS disabled:', err.message);
+  }
 }
 
 io.on('connection', (socket) => {
@@ -151,14 +173,18 @@ io.on('connection', (socket) => {
   }
 });
 
-httpServer.listen(HTTP_PORT, () => {
-  console.log(`Meeting server running at http://localhost:${HTTP_PORT}`);
-  console.log('Video/audio: WebRTC encrypted (DTLS-SRTP). Chat: AES-256 in browser.');
-});
-
-if (httpsServer) {
-  httpsServer.listen(HTTPS_PORT, () => {
-    console.log(`Secure server also running at https://localhost:${HTTPS_PORT}`);
-    console.log('Accept the local certificate once if your browser warns you.');
+if (!IS_VERCEL) {
+  httpServer.listen(PORT, () => {
+    console.log(`Huddlace API running at http://localhost:${PORT}`);
+    console.log('Video/audio: WebRTC encrypted (DTLS-SRTP). Chat: AES-256 in browser.');
+    if (CORS_ORIGIN) console.log('CORS origin:', CORS_ORIGIN);
   });
+
+  if (httpsServer) {
+    httpsServer.listen(HTTPS_PORT, () => {
+      console.log(`Local HTTPS also running at https://localhost:${HTTPS_PORT}`);
+    });
+  }
 }
+
+module.exports = { app, httpServer, io };

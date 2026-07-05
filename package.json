@@ -4,7 +4,8 @@
   "description": "Huddlace Chat — video/audio meeting platform (WebRTC mesh + Socket.io signaling)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node scripts/write-config.js"
   },
   "dependencies": {
     "express": "^4.19.2",
