@@ -15,6 +15,35 @@ const ENABLE_LOCAL_HTTPS = process.env.USE_HTTPS === 'true';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '';
 const CERT_DIR = path.join(__dirname, 'certs');
 
+function buildSocketCors() {
+  const allowed = CORS_ORIGIN.split(',').map((v) => v.trim()).filter(Boolean);
+  if (allowed.includes('*') || allowed.length === 0) {
+    return { origin: true, credentials: true };
+  }
+  return {
+    origin: (origin, cb) => {
+      if (!origin || allowed.includes(origin)) cb(null, true);
+      else cb(null, false);
+    },
+    credentials: true,
+  };
+}
+
+function buildExpressCors(req, res, next) {
+  const allowed = CORS_ORIGIN.split(',').map((v) => v.trim()).filter(Boolean);
+  const origin = req.headers.origin;
+  if (allowed.includes('*') || allowed.length === 0) {
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (origin && allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+}
+
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -23,15 +52,7 @@ app.use((req, res, next) => {
   next();
 });
 
-if (CORS_ORIGIN) {
-  app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.sendStatus(204);
-    next();
-  });
-}
+app.use(buildExpressCors);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -90,9 +111,7 @@ function isSameRoom(senderId, targetId) {
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   maxHttpBufferSize: 1e6,
-  cors: CORS_ORIGIN
-    ? { origin: CORS_ORIGIN, methods: ['GET', 'POST'], credentials: true }
-    : { origin: false },
+  cors: buildSocketCors(),
 });
 
 let httpsServer = null;
@@ -111,12 +130,18 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomId, name }, ack) => {
     roomId = normalizeRoomId(roomId);
-    if (!roomId || roomId.length < 4 || !name) return;
+    if (!roomId || roomId.length < 4 || !name) {
+      if (typeof ack === 'function') ack({ error: 'Invalid meeting code or name.' });
+      return;
+    }
+
+    if (currentRoom) leaveCurrentRoom();
+
     currentRoom = roomId;
     socket.join(roomId);
     socketRooms.set(socket.id, roomId);
 
-    const existingPeers = roomPeerList(roomId);
+    const existingPeers = roomPeerList(roomId).filter((p) => p.id !== socket.id);
     getRoom(roomId).set(socket.id, { name });
 
     if (typeof ack === 'function') {

@@ -57,6 +57,7 @@ let screenStream = null;
 let selfId = null;
 let localTileRefs = null;
 const peers = new Map();
+const pendingIceCandidates = new Map();
 
 let micOn = true;
 let camOn = true;
@@ -442,29 +443,76 @@ function addVideoTrackToPeers(track, screenShare = false) {
 }
 
 // ===================== Socket / signaling =====================
+function queueIceCandidate(peerId, candidate) {
+  if (!pendingIceCandidates.has(peerId)) pendingIceCandidates.set(peerId, []);
+  pendingIceCandidates.get(peerId).push(candidate);
+}
+
+async function flushIceCandidates(peerId, pc) {
+  const queued = pendingIceCandidates.get(peerId) || [];
+  pendingIceCandidates.delete(peerId);
+  for (const candidate of queued) {
+    try {
+      await pc.addIceCandidate(candidate);
+    } catch (e) {
+      console.warn('ICE candidate failed:', e);
+    }
+  }
+}
+
+async function addRemoteIceCandidate(peerId, entry, candidate) {
+  if (!entry?.pc || !candidate) return;
+  if (entry.pc.remoteDescription) {
+    try {
+      await entry.pc.addIceCandidate(candidate);
+    } catch (e) {
+      console.warn('ICE candidate failed:', e);
+    }
+  } else {
+    queueIceCandidate(peerId, candidate);
+  }
+}
+
 function connectSocket() {
   const serverUrl = apiBase() || undefined;
   socket = serverUrl
-    ? io(serverUrl, { transports: ['websocket', 'polling'] })
-    : io();
+    ? io(serverUrl, { transports: ['websocket', 'polling'], withCredentials: true })
+    : io({ transports: ['websocket', 'polling'] });
 
   socket.on('connect_error', () => {
-    if (serverUrl && mediaStatus) {
-      mediaStatus.textContent = 'Cannot reach the meeting server. Check BACKEND_URL is set in Vercel.';
-      mediaStatus.classList.add('error');
+    if (serverUrl) {
+      nameOverlay.classList.remove('hidden');
+      overlayJoinBtn.disabled = false;
+      overlayJoinNoMediaBtn.disabled = false;
+      if (mediaStatus) {
+        mediaStatus.textContent = 'Cannot reach the meeting server. Set BACKEND_URL on Vercel and redeploy.';
+        mediaStatus.classList.add('error');
+      }
     }
   });
 
   socket.on('connect', () => {
-    socket.emit('join-room', { roomId, name: myName }, ({ peers: existingPeers, selfId: id }) => {
+    socket.emit('join-room', { roomId, name: myName }, (response) => {
+      if (!response || response.error) {
+        nameOverlay.classList.remove('hidden');
+        overlayJoinBtn.disabled = false;
+        overlayJoinNoMediaBtn.disabled = false;
+        if (mediaStatus) {
+          mediaStatus.textContent = response?.error || 'Could not join the meeting room.';
+          mediaStatus.classList.add('error');
+        }
+        return;
+      }
+      const { peers: existingPeers, selfId: id } = response;
       selfId = id;
-      existingPeers.forEach((p) => connectToPeer(p.id, p.name, true));
+      existingPeers.forEach((p) => ensurePeerEntry(p.id, p.name));
       broadcastMediaState();
     });
   });
 
   socket.on('peer-joined', ({ id, name }) => {
-    ensurePeerEntry(id, name);
+    if (id === selfId) return;
+    connectToPeer(id, name, true);
   });
 
   socket.on('signal', async ({ from, data }) => {
@@ -472,6 +520,7 @@ function connectSocket() {
       const name = data.name || 'Guest';
       const entry = connectToPeer(from, name, false);
       await entry.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      await flushIceCandidates(from, entry.pc);
       const answer = await entry.pc.createAnswer();
       await entry.pc.setLocalDescription(answer);
       await MeetVideoQuality.configurePeerConnection(entry.pc, { screenShare: screenSharing });
@@ -480,12 +529,13 @@ function connectSocket() {
       const entry = peers.get(from);
       if (entry) {
         await entry.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        await flushIceCandidates(from, entry.pc);
         await MeetVideoQuality.configurePeerConnection(entry.pc, { screenShare: screenSharing });
       }
     } else if (data.type === 'candidate') {
       const entry = peers.get(from);
       if (entry && data.candidate) {
-        try { await entry.pc.addIceCandidate(data.candidate); } catch (e) { /* ignore */ }
+        await addRemoteIceCandidate(from, entry, data.candidate);
       }
     }
   });
@@ -496,6 +546,7 @@ function connectSocket() {
       entry.pc.close();
       entry.tile.remove();
       peers.delete(id);
+      pendingIceCandidates.delete(id);
       updateParticipantCount();
     }
   });
