@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chit Chat</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="landing">
+  <div class="landing-shell">
+    <div class="landing-brand">
+      <div class="brand-mark">CC</div>
+      <h1>Chit Chat</h1>
+      <p class="subtitle">Video meetings and chat for your team</p>
+    </div>
+
+    <div class="landing-card">
+      <label for="nameInput">Display name</label>
+      <input id="nameInput" type="text" placeholder="e.g. Alex" autocomplete="name" />
+
+      <div id="createSection">
+        <button id="createBtn" class="primary-btn" type="button">Create new meeting</button>
+      </div>
+
+      <div id="createdSection" class="hidden">
+        <p class="code-label">Your meeting code</p>
+        <div id="generatedCode" class="meeting-code"></div>
+        <p class="code-hint">Share this code with teammates. They enter it below to join the same meeting.</p>
+        <button id="copyGeneratedCodeBtn" class="secondary-btn code-action" type="button">Copy code</button>
+        <button id="startMeetingBtn" class="primary-btn" type="button">Start meeting</button>
+        <button id="createAnotherBtn" class="link-btn" type="button">Generate another code</button>
+      </div>
+
+      <div class="divider"><span>OR JOIN WITH CODE</span></div>
+
+      <label for="codeInput">Meeting code</label>
+      <div class="joinRow">
+        <input id="codeInput" type="text" placeholder="e.g. a1b2c3d4" autocomplete="off" spellcheck="false" />
+        <button id="joinBtn" class="secondary-btn" type="button">Join</button>
+      </div>
+
+      <p id="errorMsg" class="error hidden"></p>
+    </div>
+  </div>
+
+  <script src="/js/landing.js"></script>
+</body>
+</html>

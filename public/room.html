@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chit Chat — Meeting</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="room">
+  <div id="roomApp">
+    <header id="roomHeader">
+      <div class="header-left">
+        <span class="meeting-badge">● Live</span>
+        <span class="secure-badge" title="Video/audio uses WebRTC DTLS-SRTP. Chat uses AES-256. Transport uses TLS.">🔒 Encrypted</span>
+        <span id="roomCode">Code: <strong id="roomCodeVal"></strong></span>
+        <button id="copyCodeBtn" class="header-btn">Copy code</button>
+        <button id="copyLinkBtn" class="header-btn">Copy link</button>
+      </div>
+      <div class="header-right">
+        <span id="userNameDisplay" class="user-name-badge"></span>
+        <span id="participantCount">1 participant</span>
+      </div>
+    </header>
+
+    <main id="videoGrid" class="video-grid solo" data-count="1"></main>
+
+    <aside id="chatPanel" class="hidden">
+      <div class="chat-header">
+        <span>Chit Chat</span>
+        <button id="closeChatBtn" aria-label="Close chat">✕</button>
+      </div>
+      <div id="chatMessages"></div>
+      <div id="chatInputRow">
+        <input id="chatInput" type="text" placeholder="Type a message…" />
+        <button id="chatSendBtn">Send</button>
+      </div>
+    </aside>
+
+    <footer id="controlBar">
+      <div class="control-bar-inner">
+        <div class="ctrl-group">
+          <button id="micBtn" class="ctrl on" type="button">
+            <span class="ctrl-icon" aria-hidden="true">🎤</span>
+            <span class="ctrl-label">Mute</span>
+          </button>
+          <button id="camBtn" class="ctrl on" type="button">
+            <span class="ctrl-icon" aria-hidden="true">📷</span>
+            <span class="ctrl-label">Stop Video</span>
+          </button>
+        </div>
+        <div class="ctrl-group">
+          <button id="screenBtn" class="ctrl" type="button">
+            <span class="ctrl-icon" aria-hidden="true">🖥️</span>
+            <span class="ctrl-label">Share Screen</span>
+          </button>
+          <button id="chatBtn" class="ctrl" type="button">
+            <span class="ctrl-icon" aria-hidden="true">💬</span>
+            <span class="ctrl-label">Chat</span>
+          </button>
+          <button id="hdBtn" class="ctrl active" type="button" title="HD+ enhancement">
+            <span class="ctrl-icon" aria-hidden="true">✨</span>
+            <span class="ctrl-label">HD+ On</span>
+          </button>
+        </div>
+        <div class="ctrl-group">
+          <button id="leaveBtn" class="ctrl leave" type="button">
+            <span class="ctrl-label">Leave</span>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div id="nameOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <div class="overlay-logo">Chit Chat</div>
+      <h3>Ready to join?</h3>
+      <p class="overlay-sub">Meeting code <strong id="overlayRoomCode"></strong> — share this code so others can join the same room.</p>
+      <label for="overlayNameInput" class="name-label">Your name</label>
+      <input id="overlayNameInput" type="text" placeholder="e.g. Alex" autocomplete="name" />
+      <div id="previewWrap" class="hidden">
+        <video id="previewVideo" autoplay muted playsinline></video>
+      </div>
+      <p id="mediaStatus"></p>
+      <div id="permissionHelp" class="permission-help hidden"></div>
+      <button id="overlayJoinBtn" class="primary-btn" type="button">Allow camera &amp; join</button>
+      <button id="overlayJoinNoMediaBtn" class="secondary-btn overlay-secondary" type="button">Join without camera</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/crypto-chat.js"></script>
+  <script src="/js/video-quality.js"></script>
+  <script src="/js/room-client.js"></script>
+</body>
+</html>
