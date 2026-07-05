@@ -2,5 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "node scripts/write-config.js",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/room.html", "destination": "/room.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

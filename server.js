@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || process.env.HTTP_PORT || 3000);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const IS_VERCEL = Boolean(process.env.VERCEL);
@@ -86,7 +87,14 @@ app.get('/new', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, service: 'huddlace-api' });
+});
+
+app.get('/config.json', (req, res) => {
+  res.json({
+    ok: true,
+    serverUrl: `${req.protocol}://${req.get('host')}`,
+  });
 });
 
 const rooms = new Map();
@@ -112,6 +120,9 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   maxHttpBufferSize: 1e6,
   cors: buildSocketCors(),
+  transports: ['polling', 'websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 let httpsServer = null;

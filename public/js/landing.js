@@ -76,7 +76,7 @@ async function copyText(text, btn, doneLabel) {
 }
 
 function apiBase() {
-  return (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
+  return window.HuddlaceEnv?.apiBase?.() || (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
 }
 
 function generateRoomId() {
@@ -85,12 +85,18 @@ function generateRoomId() {
 }
 
 async function createRoomId() {
+  const configError = window.HuddlaceEnv?.ensureBackendConfigured?.();
+  if (configError) throw new Error(configError);
+
   const base = apiBase();
   if (base) {
-    const res = await fetch(`${base}/new`);
+    const res = await fetch(`${base}/new`, { mode: 'cors' });
     if (!res.ok) throw new Error('Could not create meeting on server.');
     const { roomId } = await res.json();
     return roomId;
+  }
+  if (!window.HuddlaceEnv?.isLocalDev?.()) {
+    throw new Error('Open the app from your Render URL or configure BACKEND_URL on Vercel.');
   }
   return generateRoomId();
 }
@@ -133,6 +139,9 @@ copyGeneratedCodeBtn.addEventListener('click', () => {
 joinBtn.addEventListener('click', () => {
   const name = getNameOrError();
   if (!name) return;
+
+  const configError = window.HuddlaceEnv?.ensureBackendConfigured?.();
+  if (configError) return showError(configError);
 
   const code = normalizeCode(codeInput.value);
   if (!code) return showError('Enter a meeting code.');

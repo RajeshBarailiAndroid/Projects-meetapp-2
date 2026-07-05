@@ -8,17 +8,21 @@ function normalizeRoomId(raw) {
 }
 
 function apiBase() {
-  return (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
+  return window.HuddlaceEnv?.apiBase?.() || (window.HUDDLACE_CONFIG?.serverUrl || '').replace(/\/$/, '');
+}
+
+function getIceServers() {
+  return window.HuddlaceEnv?.iceServers?.() || [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
 }
 
 if (!roomId || roomId.length < 4) {
   window.location.href = '/';
 }
 
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
+const ICE_SERVERS = getIceServers();
 
 const videoGrid = document.getElementById('videoGrid');
 const roomCodeVal = document.getElementById('roomCodeVal');
@@ -319,6 +323,15 @@ async function enterMeeting(skipMedia) {
   overlayJoinNoMediaBtn.disabled = true;
   clearMediaError();
 
+  const configError = window.HuddlaceEnv?.ensureBackendConfigured?.();
+  if (configError) {
+    mediaStatus.textContent = configError;
+    mediaStatus.classList.add('error');
+    overlayJoinBtn.disabled = false;
+    overlayJoinNoMediaBtn.disabled = false;
+    return;
+  }
+
   if (skipMedia) {
     localStream = new MediaStream();
     cameraTrack = null;
@@ -475,20 +488,26 @@ async function addRemoteIceCandidate(peerId, entry, candidate) {
 
 function connectSocket() {
   const serverUrl = apiBase() || undefined;
-  socket = serverUrl
-    ? io(serverUrl, { transports: ['websocket', 'polling'], withCredentials: true })
-    : io({ transports: ['websocket', 'polling'] });
+  const socketOpts = window.HuddlaceEnv?.socketOptions?.(serverUrl) || {
+    transports: ['polling', 'websocket'],
+    path: '/socket.io/',
+  };
 
-  socket.on('connect_error', () => {
-    if (serverUrl) {
-      nameOverlay.classList.remove('hidden');
-      overlayJoinBtn.disabled = false;
-      overlayJoinNoMediaBtn.disabled = false;
-      if (mediaStatus) {
-        mediaStatus.textContent = 'Cannot reach the meeting server. Set BACKEND_URL on Vercel and redeploy.';
-        mediaStatus.classList.add('error');
-      }
+  socket = serverUrl ? io(serverUrl, socketOpts) : io(socketOpts);
+
+  socket.on('connect_error', (err) => {
+    nameOverlay.classList.remove('hidden');
+    overlayJoinBtn.disabled = false;
+    overlayJoinNoMediaBtn.disabled = false;
+    if (mediaStatus) {
+      const hint = serverUrl
+        ? `Cannot reach meeting server at ${serverUrl}. Check Render is running and CORS_ORIGIN allows this site.`
+        : window.HuddlaceEnv?.ensureBackendConfigured?.() ||
+          'Cannot connect to the meeting server.';
+      mediaStatus.textContent = hint;
+      mediaStatus.classList.add('error');
     }
+    console.warn('Socket connect_error:', err?.message || err);
   });
 
   socket.on('connect', () => {
