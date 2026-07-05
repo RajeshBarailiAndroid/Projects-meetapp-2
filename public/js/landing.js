@@ -89,16 +89,29 @@ async function createRoomId() {
   if (configError) throw new Error(configError);
 
   const base = apiBase();
+  const newUrl = base ? `${base}/new` : '/new';
+
+  try {
+    const res = await fetch(newUrl, { mode: 'cors' });
+    if (res.ok) {
+      const { roomId } = await res.json();
+      return roomId;
+    }
+  } catch (_) {
+    // Try local fallback below when developing offline.
+  }
+
+  if (window.HuddlaceEnv?.isLocalDev?.()) {
+    return generateRoomId();
+  }
+
   if (base) {
-    const res = await fetch(`${base}/new`, { mode: 'cors' });
-    if (!res.ok) throw new Error('Could not create meeting on server.');
-    const { roomId } = await res.json();
-    return roomId;
+    throw new Error('Could not create meeting on server. Check that Render is running.');
   }
-  if (!window.HuddlaceEnv?.isLocalDev?.()) {
-    throw new Error('Open the app from your Render URL or configure BACKEND_URL on Vercel.');
-  }
-  return generateRoomId();
+
+  throw new Error(
+    'Could not reach the meeting server. Set BACKEND_URL on Vercel to your Render API URL, or open the app from your Render URL.',
+  );
 }
 
 createBtn.addEventListener('click', async () => {

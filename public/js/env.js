@@ -34,6 +34,10 @@ window.HuddlaceEnv = (function () {
     return isSplitFrontend() && !isLocalDev();
   }
 
+  function usesSameOriginBackend() {
+    return !apiBase();
+  }
+
   function ensureBackendConfigured() {
     if (!requiresRemoteBackend()) return null;
     if (apiBase()) return null;
@@ -73,6 +77,7 @@ window.HuddlaceEnv = (function () {
     isLocalDev,
     isSplitFrontend,
     apiBase,
+    usesSameOriginBackend,
     requiresRemoteBackend,
     ensureBackendConfigured,
     socketOptions,
