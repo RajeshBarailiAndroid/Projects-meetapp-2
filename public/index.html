@@ -19,6 +19,14 @@
       <label for="nameInput">Display name</label>
       <input id="nameInput" type="text" placeholder="e.g. Alex" autocomplete="name" />
 
+      <div id="serverSection" class="server-section hidden">
+        <label for="serverUrlInput">Meeting server URL</label>
+        <p class="code-hint">Required on huddlance.com. Paste your Render API URL (e.g. https://your-app.onrender.com).</p>
+        <input id="serverUrlInput" type="url" placeholder="https://your-app.onrender.com" autocomplete="url" />
+        <button id="saveServerBtn" class="secondary-btn code-action" type="button">Save &amp; test server</button>
+        <p id="serverStatus" class="server-status hidden"></p>
+      </div>
+
       <div id="createSection">
         <button id="createBtn" class="primary-btn" type="button">Create new meeting</button>
       </div>

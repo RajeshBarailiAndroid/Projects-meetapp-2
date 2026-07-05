@@ -323,7 +323,7 @@ async function enterMeeting(skipMedia) {
   overlayJoinNoMediaBtn.disabled = true;
   clearMediaError();
 
-  const configError = window.HuddlaceEnv?.ensureBackendConfigured?.();
+  const configError = await window.HuddlaceEnv?.ensureBackendConfigured?.();
   if (configError) {
     mediaStatus.textContent = configError;
     mediaStatus.classList.add('error');
@@ -501,9 +501,8 @@ function connectSocket() {
     overlayJoinNoMediaBtn.disabled = false;
     if (mediaStatus) {
       const hint = serverUrl
-        ? `Cannot reach meeting server at ${serverUrl}. Check Render is running and CORS_ORIGIN allows this site.`
-        : window.HuddlaceEnv?.ensureBackendConfigured?.() ||
-          'Cannot connect to the meeting server.';
+        ? `Cannot reach meeting server at ${serverUrl}. On the home page, save your Render URL under "Meeting server URL", or wake Render from its dashboard.`
+        : 'Cannot connect to the meeting server. Go back and save your Render API URL on the home page.';
       mediaStatus.textContent = hint;
       mediaStatus.classList.add('error');
     }

@@ -11,4 +11,4 @@ services:
       - key: USE_HTTPS
         value: false
       - key: CORS_ORIGIN
-        sync: false
+        value: "https://huddlance.com,https://www.huddlance.com"

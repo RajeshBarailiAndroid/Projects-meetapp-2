@@ -1,3 +1,5 @@
+require('./scripts/load-env');
+
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -15,32 +17,46 @@ const IS_VERCEL = Boolean(process.env.VERCEL);
 const ENABLE_LOCAL_HTTPS = process.env.USE_HTTPS === 'true';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '';
 const CERT_DIR = path.join(__dirname, 'certs');
+const DEFAULT_ORIGINS = ['https://huddlance.com', 'https://www.huddlance.com'];
+
+function getAllowedOrigins() {
+  const fromEnv = CORS_ORIGIN.split(',').map((v) => v.trim()).filter(Boolean);
+  if (fromEnv.includes('*')) return ['*'];
+  if (fromEnv.length === 0) return DEFAULT_ORIGINS;
+  return [...new Set([...fromEnv, ...DEFAULT_ORIGINS])];
+}
+
+function isOriginAllowed(origin, allowed) {
+  if (!origin) return true;
+  if (allowed.includes('*')) return true;
+  return allowed.includes(origin);
+}
 
 function buildSocketCors() {
-  const allowed = CORS_ORIGIN.split(',').map((v) => v.trim()).filter(Boolean);
-  if (allowed.includes('*') || allowed.length === 0) {
+  const allowed = getAllowedOrigins();
+  if (allowed.includes('*')) {
     return { origin: true, credentials: true };
   }
   return {
     origin: (origin, cb) => {
-      if (!origin || allowed.includes(origin)) cb(null, true);
-      else cb(null, false);
+      cb(null, isOriginAllowed(origin, allowed));
     },
     credentials: true,
   };
 }
 
 function buildExpressCors(req, res, next) {
-  const allowed = CORS_ORIGIN.split(',').map((v) => v.trim()).filter(Boolean);
+  const allowed = getAllowedOrigins();
   const origin = req.headers.origin;
-  if (allowed.includes('*') || allowed.length === 0) {
-    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (origin && allowed.includes(origin)) {
+  if (isOriginAllowed(origin, allowed) && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (allowed.includes('*') && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 }
@@ -54,6 +70,42 @@ app.use((req, res, next) => {
 });
 
 app.use(buildExpressCors);
+
+const rooms = new Map();
+const socketRooms = new Map();
+
+function getRoom(roomId) {
+  if (!rooms.has(roomId)) rooms.set(roomId, new Map());
+  return rooms.get(roomId);
+}
+
+function roomPeerList(roomId) {
+  const room = getRoom(roomId);
+  return Array.from(room.entries()).map(([id, info]) => ({ id, name: info.name }));
+}
+
+function isSameRoom(senderId, targetId) {
+  const senderRoom = socketRooms.get(senderId);
+  const targetRoom = socketRooms.get(targetId);
+  return Boolean(senderRoom && senderRoom === targetRoom);
+}
+
+app.get('/health', (_req, res) => {
+  res.type('application/json').json({ ok: true, service: 'huddlace-api' });
+});
+
+app.get('/new', (_req, res) => {
+  const roomId = crypto.randomBytes(4).toString('hex');
+  getRoom(roomId);
+  res.type('application/json').json({ roomId });
+});
+
+app.get('/config.json', (req, res) => {
+  res.type('application/json').json({
+    ok: true,
+    serverUrl: `${req.protocol}://${req.get('host')}`,
+  });
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -78,42 +130,6 @@ function ensureDevCertificates() {
     key: fs.readFileSync(keyPath),
     cert: fs.readFileSync(certPath),
   };
-}
-
-app.get('/new', (_req, res) => {
-  const roomId = crypto.randomBytes(4).toString('hex');
-  getRoom(roomId);
-  res.json({ roomId });
-});
-
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'huddlace-api' });
-});
-
-app.get('/config.json', (req, res) => {
-  res.json({
-    ok: true,
-    serverUrl: `${req.protocol}://${req.get('host')}`,
-  });
-});
-
-const rooms = new Map();
-const socketRooms = new Map();
-
-function getRoom(roomId) {
-  if (!rooms.has(roomId)) rooms.set(roomId, new Map());
-  return rooms.get(roomId);
-}
-
-function roomPeerList(roomId) {
-  const room = getRoom(roomId);
-  return Array.from(room.entries()).map(([id, info]) => ({ id, name: info.name }));
-}
-
-function isSameRoom(senderId, targetId) {
-  const senderRoom = socketRooms.get(senderId);
-  const targetRoom = socketRooms.get(targetId);
-  return Boolean(senderRoom && senderRoom === targetRoom);
 }
 
 const httpServer = http.createServer(app);

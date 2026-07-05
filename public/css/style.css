@@ -199,6 +199,23 @@ body.landing {
   text-align: center;
 }
 
+.server-section {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(66, 133, 244, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.server-status {
+  margin: 10px 0 0;
+  font-size: 12px;
+  text-align: center;
+}
+
+.server-status.ok { color: #137333; }
+.server-status.bad { color: #c5221f; }
+
 .code-action {
   width: 100%;
   margin-bottom: 10px;
